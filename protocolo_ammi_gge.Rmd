@@ -1,0 +1,147 @@
+---
+title: "Script para AMMI e GGE"
+author: "Danilo Sarti -- danilo.estat@gmail.com"
+date: "2/17/2021"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## instalando e carregando pacotes requeridos.
+Para instalar os pacotes retire o # abaixo. É necessário instalar uma única vez. 
+Para carregar utilize os comandos `library()` como a seguir.
+```{r}
+#install.packages("readr","agricolae","GGEBiplots","tidyverse","GGEBiplots")
+library(readr)
+library(agricolae)
+library(GGEBiplots)
+library(tidyverse)
+```
+
+
+
+
+```{r}
+### Análise AMMI e GGE 
+#lendo os dados:
+dados_sarti_aula <- read.csv("dados_sarti.csv")
+glimpse(dados_sarti_aula)
+head(dados_sarti_aula)# o data set contem genotipos, blocos, ambients e dados da producao de milho simulados a partir da metodologia presente em sarrti 2019. o conjunto de dados simulado aqui é diferente do da tese resultados podem ser diferentes.
+dados_sarti_aula=dados_sarti_aula[,-1] # retirando a primeira coluna que apenas diz o numero da observacao 
+
+glimpse(dados_sarti_aula)
+head(dados_sarti_aula)
+str(dados_sarti_aula)
+```
+
+## Análise AMMI com pacote `agricolae`
+
+# ajuste de parametros para rodar o modelo 
+
+
+```{r}
+Ambiente<- as.factor(dados_sarti_aula[,2])
+Genotipo<-as.factor( dados_sarti_aula[, 4])
+Bloco<-as.factor( dados_sarti_aula[, 1])
+Prod<- dados_sarti_aula[, 3]
+ENV=Ambiente
+GEN=Genotipo
+REP=Bloco
+Y=Prod
+model<-AMMI(Ambiente,Genotipo,Bloco, Prod,PC=T,console=T)
+names(model) # verificar o que a funcao ammi torna disponivel 
+```
+
+# extraindo parametros da analise ammi
+```{r}
+model$ANOVA # analise de variancia conjunta
+model$genXenv # tabela de residuos de genotipo dentro dos ambientes calculados a partir de regressao com medias. matriz a ser decomposta na SVD
+model$analysis# obtencao dos valores de pc para analise ammi 
+model$means # medias de genotipos dentro de ambientes 
+model$biplot# coordenadas utilizadas na construcao de biplots
+model$PC # objeto com dados sobre a analise de componentes principais 
+
+model$PC$sdev # desvio padrao 
+model$PC$loadings # pcs loadings
+model$PC$center
+model$PC$scale
+model$PC$n.obs
+model$PC$scores # scores de genotipos
+
+```
+
+# coeficiente de variacao 
+```{r}
+#calculo de coeficiente de variacao ammi 
+model$ANOVA ###tabela 4 p?gina 67
+coefvar<-sqrt(222882)/mean(Prod)
+coefvar
+coefvar*100
+```
+
+# decomposicao de valores singulares na mao 
+
+```{r}
+ngen=length(levels(GEN))
+nenv=length(levels(ENV))
+svd(model$genXenv, nu = min(ngen, nenv-1), nv = min(ngen, nenv-1))
+```
+
+
+# Biplots PC1xPC2, PC1xmedia e triplot
+```{r}
+plot(model,type = 1, main="AMMI Biplot dados sarti ")
+grid(col="black")
+
+plot(model,first=0,second=1, main="AMMI Biplot dados sarti") 
+grid(col="black")
+
+plot(model,type = 2, main="AMMI Biplot dados sarti ")
+grid(col="black")
+```
+
+
+## GGE_analysis
+
+# preparando os dados para usar na funcao do pacote GGEBiplots
+```{r}
+sarti_medias=model$means #medias de genotipos dentro ambientes 
+sarti_medias=sarti_medias[,-4] # tira a coluna dos  e residuos
+data_wide_sarti=spread(sarti_medias,ENV,Prod) # tabela no formato wide a ser usada pelo GGE
+typeof(data_wide_sarti)
+#convertendo para data frame
+data_wide_sarti=as.data.frame(data_wide_sarti)
+glimpse(data_wide_sarti)
+data_wide_sarti_gge=data_wide_sarti[,-1]
+rownames(data_wide_sarti_gge)=data_wide_sarti[,1]
+
+```
+
+
+
+
+
+```{r}
+sarti_GGE1<-GGEModel(data_wide_sarti_gge,scaling = "none", centering = "tester",SVP="dual")
+
+#str(sarti_GGE1) Verificar tudo que é retornado pela funcao,. basta descomentar tirando o #. se quise acessar algum dos itens da lista so usar sarti_GGE1$oque se quer retirar exemplo autovalores
+
+
+sarti_GGE1$eigenvalues
+CompareGens(sarti_GGE1,"g1","g2")
+sarti_GGE1<-GGEModel(data_wide_sarti_gge,SVP="symmetrical")
+DiscRep(sarti_GGE1)
+GGEPlot(sarti_GGE1)
+EnvRelationship(sarti_GGE1)
+GGEPlot(sarti_GGE1, type=1)
+GGEPlot(sarti_GGE1, type=4)
+GGEPlot(sarti_GGE1, type=6)
+GGEPlot(sarti_GGE1, type=7)
+GGEPlot(sarti_GGE1, type=9)
+```
+
