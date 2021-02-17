@@ -1,6 +1,6 @@
 ---
 title: "Script para AMMI e GGE"
-author: "Danilo Sarti -- danilo.estat@gmail.com"
+author: "Danilo Sarti -- danilo.estat@gmail.com -- https://danilosarti.github.io/"
 date: "2/17/2021"
 output: pdf_document
 editor_options: 
